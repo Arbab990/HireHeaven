@@ -1,4 +1,4 @@
-import { createTransport } from "nodemailer";
+/*import { createTransport } from "nodemailer";
 
 const sendMail = async (subject, data) => {
   const transport = createTransport({
@@ -82,4 +82,4 @@ const sendMail = async (subject, data) => {
   });
 };
 
-export default sendMail;
+export default sendMail;*/
