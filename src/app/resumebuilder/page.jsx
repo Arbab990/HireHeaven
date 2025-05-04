@@ -5,9 +5,9 @@ import { useState } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { motion, AnimatePresence } from "framer-motion";
 import { Edit, Loader2, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
-import html2pdf from "html2pdf.js";
 
-// Initialize Gemini API
+// Dynamically import html2pdf.js with ssr: false
+const html2pdf = typeof window !== "undefined" ? require("html2pdf.js") : null;
 
 const ResumeBuilder = () => {
   const [formData, setFormData] = useState({
@@ -83,8 +83,6 @@ ${formData.achievements}
 Make it professional, readable, and without any markdown formatting or stars.
 `;
 
-
-
       const result = await model.generateContent(userPrompt);
       const responseText = await result.response.text();
       setGeneratedResume(responseText.trim());
@@ -102,23 +100,23 @@ Make it professional, readable, and without any markdown formatting or stars.
       setError("No resume to download.");
       return;
     }
-  
+
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
-  
-      html2pdf()
-        .set({
-          filename: "Generated_Resume.pdf",
-          margin: [10, 10],
-          html2canvas: { scale: 2 },
-          jsPDF: { unit: "mm", format: "a4" },
-        })
-        .from(element)
-        .save();
+      if (html2pdf) {
+        html2pdf()
+          .set({
+            filename: "Generated_Resume.pdf",
+            margin: [10, 10],
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: "mm", format: "a4" },
+          })
+          .from(element)
+          .save();
+      }
     } catch (err) {
       console.error("PDF download failed:", err);
       setError("PDF download failed. You can still print or save using your browser.");
-  
+
       // Fallback: open print dialog for manual save
       const printWindow = window.open("", "_blank");
       if (printWindow) {
@@ -136,17 +134,16 @@ Make it professional, readable, and without any markdown formatting or stars.
       }
     }
   };
-  
 
   const formatResume = (resumeText) => {
     const lines = resumeText.split("\n").filter(line => line.trim() !== "");
-  
+
     const formattedContent = [];
     let insideList = false;
-  
+
     lines.forEach((line, index) => {
       const trimmed = line.trim();
-  
+
       if (/^(Summary|Education|Skills|Projects|Experience|Achievements)/i.test(trimmed)) {
         // Close the list if open
         if (insideList) {
@@ -159,7 +156,7 @@ Make it professional, readable, and without any markdown formatting or stars.
             <hr className="border-gray-300 mb-4" />
           </div>
         );
-      } 
+      }
       else if (/^[-•]/.test(trimmed)) {
         // Open the list if not already open
         if (!insideList) {
@@ -169,7 +166,7 @@ Make it professional, readable, and without any markdown formatting or stars.
         formattedContent.push(
           <li key={index} className="text-gray-700">{trimmed.replace(/^[-•]\s*/, "")}</li>
         );
-      } 
+      }
       else {
         // Close the list if open
         if (insideList) {
@@ -181,15 +178,15 @@ Make it professional, readable, and without any markdown formatting or stars.
         );
       }
     });
-  
+
     // Close the list if open at the end
     if (insideList) {
       formattedContent.push(<ul key={`list-end-final`} className="list-disc pl-5 space-y-1"></ul>);
     }
-  
+
     return formattedContent;
   };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100 flex items-center justify-center p-4">
       <motion.div
@@ -258,43 +255,41 @@ Make it professional, readable, and without any markdown formatting or stars.
             )}
           </motion.button>
 
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg flex items-center gap-3"
-              >
-                <AlertTriangle className="w-6 h-6" />
-                {error}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {error && (
+            <div className="text-red-500 font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              {error}
+            </div>
+          )}
 
           {generatedResume && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4"
-            >
-              <h2 className="text-2xl font-bold text-blue-600 flex items-center gap-3">
-                <CheckCircle2 className="w-6 h-6 text-green-500" />
-                Generated Resume
-              </h2>
-              <div id="resume-output" className="text-gray-800 leading-7 space-y-2">
-                {formatResume(generatedResume)}
+            <div className="mt-4">
+              <div className="text-center text-2xl font-bold mb-4">
+                Generated Resume Preview
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={convertToPDF}
-                className="mt-4 w-full py-3 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-semibold rounded-lg flex items-center justify-center gap-2"
-              >
-                <FileText className="w-5 h-5" />
-                Download as PDF
-              </motion.button>
-            </motion.div>
+              <AnimatePresence>
+                <motion.div
+                  key="resume-preview"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div
+                    id="resume-output"
+                    className="prose max-w-none space-y-4 break-words"
+                    style={{ whiteSpace: "pre-wrap" }}
+                  >
+                    {formatResume(generatedResume)}
+                  </div>
+                  <button
+                    onClick={convertToPDF}
+                    className="mt-4 w-full py-2 text-white bg-blue-600 rounded-lg font-semibold"
+                  >
+                    Download as PDF
+                  </button>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           )}
         </div>
       </motion.div>
@@ -303,3 +298,4 @@ Make it professional, readable, and without any markdown formatting or stars.
 };
 
 export default ResumeBuilder;
+
