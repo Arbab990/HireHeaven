@@ -96,23 +96,47 @@ Make it professional, readable, and without any markdown formatting or stars.
     }
   };
 
-  const convertToPDF = () => {
+  const convertToPDF = async () => {
     const element = document.getElementById("resume-output");
     if (!element) {
       setError("No resume to download.");
       return;
     }
-
-    html2pdf()
-      .set({
-        filename: "Generated_Resume.pdf",
-        margin: [10, 10],
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "mm", format: "a4" },
-      })
-      .from(element)
-      .save();
+  
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+  
+      html2pdf()
+        .set({
+          filename: "Generated_Resume.pdf",
+          margin: [10, 10],
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: "mm", format: "a4" },
+        })
+        .from(element)
+        .save();
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      setError("PDF download failed. You can still print or save using your browser.");
+  
+      // Fallback: open print dialog for manual save
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head><title>Resume</title></head>
+            <body style="font-family: sans-serif; padding: 20px;">
+              ${element.innerHTML}
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      }
+    }
   };
+  
 
   const formatResume = (resumeText) => {
     const lines = resumeText.split("\n").filter(line => line.trim() !== "");
